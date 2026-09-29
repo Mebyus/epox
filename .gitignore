@@ -1,0 +1,13 @@
+/data/
+/tls/
+
+/*.sql
+
+*.scf
+*.pem
+*.log
+*.json
+*.exe
+*.gz
+*.zip
+*.tar

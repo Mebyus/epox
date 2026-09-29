@@ -1,0 +1,495 @@
+<!-- ============ AUTH VIEW ============ -->
+<section id="view-auth" class="auth-view" aria-labelledby="auth-title">
+<div class="auth-card">
+    <header class="auth-header">
+    <h1 id="auth-title" class="auth-title">Welcome back</h1>
+    <p class="auth-subtitle">Sign in to your tasks.</p>
+    </header>
+
+    <form id="login-form" class="auth-form" novalidate>
+    <label class="field">
+        <span class="field-label">Login</span>
+        <input
+        type="text"
+        name="login"
+        autocomplete="username"
+        required
+        placeholder="login"
+        />
+    </label>
+
+    <label class="field">
+        <span class="field-label">
+        Password
+        <a class="field-link" href="#forgot">Forgot?</a>
+        </span>
+        <input
+        type="password"
+        name="password"
+        autocomplete="current-password"
+        required
+        minlength="8"
+        placeholder="••••••••"
+        />
+    </label>
+
+    <label class="checkbox-row">
+        <input type="checkbox" name="remember" />
+        <span>Remember me</span>
+    </label>
+
+    <!-- Error message region, filled by JS -->
+    <p class="form-error" role="alert" hidden></p>
+
+    <button class="btn btn-primary btn-block" type="submit">
+        Sign in
+    </button>
+    </form>
+
+    <p class="auth-footer">
+    No account? <a href="#signup">Create one</a>
+    </p>
+</div>
+</section>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<!-- ============ APP VIEW ============ -->
+<div id="view-app" hidden>
+<header class="site-header">
+    <div class="container header-inner">
+        <a class="logo" href="/">Tasks</a>
+
+        <label class="search" for="search-input">
+            <svg class="icon" viewBox="0 0 20 20" aria-hidden="true" width="16" height="16">
+            <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    d="M9 3a6 6 0 1 0 0 12A6 6 0 0 0 9 3Zm4.5 10.5L18 18"/>
+            </svg>
+            <input id="search-input" type="search" placeholder="Search tasks…" autocomplete="off" />
+        </label>
+
+        <div class="header-actions">
+        <button class="btn btn-primary" type="button">+ New task</button>
+        <button class="icon-btn" type="button" aria-label="Toggle theme">…</button>
+        <button class="icon-btn" type="button" aria-label="Sign out" onclick="logout()" title="Sign out">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12"/>
+            </svg>
+        </button>
+        </div>
+    </div>
+</header>
+
+<main id="main" class="container">
+    <!-- Tabs -->
+    <div class="tabs" role="tablist" aria-label="Task views">
+    <button role="tab" id="tab-active" aria-controls="panel-active" aria-selected="true"
+            class="tab" data-tab="active">
+        Active <span class="tab-count">5</span>
+    </button>
+    <button role="tab" id="tab-history" aria-controls="panel-history" aria-selected="false"
+            class="tab" data-tab="history">
+        History <span class="tab-count">6</span>
+    </button>
+    </div>
+
+    <!-- ============ ACTIVE PANEL ============ -->
+    <section id="panel-active" role="tabpanel" aria-labelledby="tab-active" class="panel">
+
+    <!-- Inline create row -->
+    <form class="task-create" autocomplete="off">
+        <span class="task-checkbox-placeholder" aria-hidden="true"></span>
+        <div class="task-create-body">
+        <input class="task-create-title" type="text"
+                placeholder="What needs to be done?" aria-label="New task title" />
+        <div class="task-create-meta">
+            <button type="button" class="chip chip-add">
+            <span aria-hidden="true">+</span> description
+            </button>
+            <button type="button" class="chip chip-add">
+            <span aria-hidden="true">+</span> deadline
+            </button>
+            <button type="button" class="chip chip-add">
+            <span aria-hidden="true">+</span> tags
+            </button>
+            <button type="button" class="chip chip-add">
+            <span aria-hidden="true">+</span> progress
+            </button>
+        </div>
+        </div>
+    </form>
+
+    <ul id="active-task-list" class="task-list" role="list">
+
+        <!-- Task 1: everything filled -->
+        <li class="task" tabindex="0">
+        <label class="task-check">
+            <input type="checkbox" aria-label="Complete: Write project proposal" />
+            <span class="task-check-visual" aria-hidden="true"></span>
+        </label>
+
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Write project proposal</span>
+            <span class="badge badge-warn" title="Due Mar 14, 14:00">
+                <svg class="icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor"
+                        stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                6h 30m
+            </span>
+            </div>
+            <div class="task-meta">
+            <span class="task-desc">Draft outline, budget, and timeline.</span>
+            <span class="tags">
+                <span class="tag">#work</span>
+                <span class="tag">#urgent</span>
+            </span>
+            </div>
+            <div class="progress" aria-label="Progress 40 percent">
+            <div class="progress-bar" style="width:40%"></div>
+            </div>
+        </div>
+
+        <button class="task-cancel" type="button" aria-label="Cancel task" title="Cancel">✕</button>
+        </li>
+
+        <!-- Task 2: no progress -->
+        <li class="task" tabindex="0">
+        <label class="task-check">
+            <input type="checkbox" aria-label="Complete: Read 'Refactoring UI'" />
+            <span class="task-check-visual" aria-hidden="true"></span>
+        </label>
+
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Read "Refactoring UI"</span>
+            <span class="badge badge-neutral" title="Due Mar 20">
+                <svg class="icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor"
+                        stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                5d
+            </span>
+            </div>
+            <div class="task-meta">
+            <span class="tags">
+                <span class="tag">#learning</span>
+            </span>
+            </div>
+        </div>
+
+        <button class="task-cancel" type="button" aria-label="Cancel task" title="Cancel">✕</button>
+        </li>
+
+        <!-- Task 3: title only -->
+        <li class="task" tabindex="0">
+        <label class="task-check">
+            <input type="checkbox" aria-label="Complete: Call dentist" />
+            <span class="task-check-visual" aria-hidden="true"></span>
+        </label>
+
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Call dentist</span>
+            </div>
+        </div>
+
+        <button class="task-cancel" type="button" aria-label="Cancel task" title="Cancel">✕</button>
+        </li>
+
+        <!-- Task 4: overdue -->
+        <li class="task task-overdue" tabindex="0">
+        <label class="task-check">
+            <input type="checkbox" aria-label="Complete: Submit tax form" />
+            <span class="task-check-visual" aria-hidden="true"></span>
+        </label>
+
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Submit tax form</span>
+            <span class="badge badge-danger" title="Was due yesterday">
+                <svg class="icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor"
+                        stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                1d overdue
+            </span>
+            </div>
+            <div class="task-meta">
+            <span class="tags">
+                <span class="tag">#finance</span>
+            </span>
+            </div>
+        </div>
+
+        <button class="task-cancel" type="button" aria-label="Cancel task" title="Cancel">✕</button>
+        </li>
+
+        <!-- Task 5: near-complete -->
+        <li class="task" tabindex="0">
+        <label class="task-check">
+            <input type="checkbox" aria-label="Complete: Refactor auth module" />
+            <span class="task-check-visual" aria-hidden="true"></span>
+        </label>
+
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Refactor auth module</span>
+            <span class="badge badge-neutral" title="Due Mar 25">
+                <svg class="icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor"
+                        stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                10d
+            </span>
+            </div>
+            <div class="task-meta">
+            <span class="task-desc">Extract session logic, add tests.</span>
+            <span class="tags">
+                <span class="tag">#work</span>
+                <span class="tag">#code</span>
+            </span>
+            </div>
+            <div class="progress" aria-label="Progress 75 percent">
+            <div class="progress-bar" style="width:75%"></div>
+            </div>
+        </div>
+
+        <button class="task-cancel" type="button" aria-label="Cancel task" title="Cancel">✕</button>
+        </li>
+
+    </ul>
+
+    <!-- Empty state (hidden by default) -->
+    <div class="empty" hidden>
+        <p class="empty-title">Nothing on your plate. Nice.</p>
+        <p class="empty-hint">Add a task above to get started.</p>
+    </div>
+    </section>
+
+    <!-- ============ HISTORY PANEL ============ -->
+    <section id="panel-history" role="tabpanel" aria-labelledby="tab-history"
+            class="panel" hidden>
+
+    <div class="filters" role="group" aria-label="Filter history">
+        <button class="filter is-active" type="button">All</button>
+        <button class="filter" type="button">Completed</button>
+        <button class="filter" type="button">Canceled</button>
+        <button class="filter" type="button">Expired</button>
+    </div>
+
+    <ul class="task-list task-list-history" role="list">
+
+        <li class="task task-history">
+        <span class="task-status task-status-completed" aria-label="Completed">✓</span>
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Send invoice to Acme</span>
+            <span class="badge badge-neutral">completed · 2h ago</span>
+            </div>
+            <div class="task-meta">
+            <span class="tags"><span class="tag">#work</span></span>
+            </div>
+        </div>
+        <button class="task-restore" type="button">Restore</button>
+        </li>
+
+        <li class="task task-history">
+        <span class="task-status task-status-completed" aria-label="Completed">✓</span>
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Review pull request #482</span>
+            <span class="badge badge-neutral">completed · 6h ago</span>
+            </div>
+        </div>
+        <button class="task-restore" type="button">Restore</button>
+        </li>
+
+        <li class="task task-history">
+        <span class="task-status task-status-canceled" aria-label="Canceled">✕</span>
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Draft old landing page copy</span>
+            <span class="badge badge-neutral">canceled · 1d ago</span>
+            </div>
+            <div class="task-meta">
+            <span class="tags"><span class="tag">#marketing</span></span>
+            </div>
+        </div>
+        <button class="task-restore" type="button">Restore</button>
+        </li>
+
+        <li class="task task-history">
+        <span class="task-status task-status-expired" aria-label="Expired">⏱</span>
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Submit conference talk proposal</span>
+            <span class="badge badge-neutral">expired · 2d ago</span>
+            </div>
+            <div class="task-meta">
+            <span class="tags"><span class="tag">#speaking</span></span>
+            </div>
+        </div>
+        <button class="task-restore" type="button">Restore</button>
+        </li>
+
+        <li class="task task-history">
+        <span class="task-status task-status-completed" aria-label="Completed">✓</span>
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Set up CI pipeline</span>
+            <span class="badge badge-neutral">completed · 3d ago</span>
+            </div>
+            <div class="task-meta">
+            <span class="tags"><span class="tag">#work</span><span class="tag">#infra</span></span>
+            </div>
+        </div>
+        <button class="task-restore" type="button">Restore</button>
+        </li>
+
+        <li class="task task-history">
+        <span class="task-status task-status-canceled" aria-label="Canceled">✕</span>
+        <div class="task-body">
+            <div class="task-line">
+            <span class="task-title">Buy standing desk</span>
+            <span class="badge badge-neutral">canceled · 1w ago</span>
+            </div>
+        </div>
+        <button class="task-restore" type="button">Restore</button>
+        </li>
+
+    </ul>
+    </section>
+</main>
+
+<!-- ============ EDIT DRAWER ============ -->
+<dialog id="edit-drawer" class="drawer" aria-labelledby="drawer-title">
+    <form method="dialog" class="drawer-inner">
+    <header class="drawer-header">
+        <h2 id="drawer-title">Edit task</h2>
+        <button class="icon-btn" value="cancel" aria-label="Close">✕</button>
+    </header>
+
+    <div class="drawer-body">
+        <label class="field">
+        <span class="field-label">Title</span>
+        <input type="text" value="Write project proposal" required />
+        </label>
+
+        <label class="field">
+        <span class="field-label">Description</span>
+        <textarea rows="3">Draft outline, budget, and timeline.</textarea>
+        </label>
+
+        <div class="field-row">
+        <label class="field">
+            <span class="field-label">Deadline date</span>
+            <input type="date" value="2026-09-15" />
+        </label>
+        <label class="field">
+            <span class="field-label">Time</span>
+            <input type="time" value="14:00" />
+        </label>
+        </div>
+
+        <div class="field">
+        <span class="field-label">Tags</span>
+        <div class="tags-input">
+            <span class="tag tag-removable">#work <button type="button" aria-label="Remove tag work">×</button></span>
+            <span class="tag tag-removable">#urgent <button type="button" aria-label="Remove tag urgent">×</button></span>
+            <input type="text" placeholder="add tag…" aria-label="Add tag" />
+        </div>
+        </div>
+
+        <label class="field">
+        <span class="field-label">Progress <span class="field-value">40%</span></span>
+        <input type="range" min="0" max="100" value="40" />
+        </label>
+    </div>
+
+    <footer class="drawer-footer">
+        <button class="btn btn-ghost" value="cancel" type="submit">Cancel</button>
+        <button class="btn btn-primary" value="save" type="submit">Save</button>
+    </footer>
+    </form>
+</dialog>
+
+<!-- ============ UNDO TOAST ============ -->
+<div class="toast" role="status" aria-live="polite">
+    <span class="toast-msg">Task completed.</span>
+    <button class="toast-action" type="button">Undo</button>
+</div>
+</div>
+
+<script defer>
+// ============================================
+// Auth + view switching
+// ============================================
+
+const appView  = document.getElementById('view-app');
+
+function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.hidden = false;
+    loginForm.email.setAttribute('aria-invalid', 'true');
+    loginForm.password.setAttribute('aria-invalid', 'true');
+}
+
+function setLoading(on) {
+    const btn = loginForm.querySelector('button[type="submit"]');
+    btn.disabled = on;
+    btn.textContent = on ? 'Signing in…' : 'Sign in';
+}
+
+// --- Logout (add a button somewhere in the header) ----------------
+window.logout = function () {
+    localStorage.removeItem('session');
+    sessionStorage.removeItem('session');
+    setView('auth');
+    loginForm.reset();
+    loginForm.email.focus();
+};
+</script>
+
+<!-- Tiny bit of interactivity so the demo is usable.
+    Real logic would live in js/main.js. -->
+<script defer>
+// Tabs
+const tabs = document.querySelectorAll('.tab');
+const panels = {
+    active: document.getElementById('panel-active'),
+    history: document.getElementById('panel-history'),
+};
+tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+    tabs.forEach(t => t.setAttribute('aria-selected', t === tab));
+    const name = tab.dataset.tab;
+    Object.entries(panels).forEach(([k, el]) => el.hidden = k !== name);
+    });
+});
+
+// Open edit drawer when clicking a task row
+const drawer = document.getElementById('edit-drawer');
+document.querySelectorAll('.task').forEach(task => {
+    task.addEventListener('click', (e) => {
+    if (e.target.closest('button, input, label')) return;
+    drawer.showModal();
+    });
+});
+
+// Show the undo toast briefly as a demo
+const toast = document.querySelector('.toast');
+document.querySelectorAll('.task-check input').forEach(cb => {
+    cb.addEventListener('change', () => {
+    toast.classList.add('is-visible');
+    clearTimeout(window.__toastT);
+    window.__toastT = setTimeout(() => toast.classList.remove('is-visible'), 5000);
+    });
+});
+</script>
