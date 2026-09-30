@@ -74,6 +74,7 @@ func run(cfg *Config, ctx context.Context, lg *zap.Logger) error {
 	if err != nil {
 		return fmt.Errorf("setup db connection: %v", err)
 	}
+	go db.RemoveExpiredSessions(ctx, lg)
 
 	logic := logic.New(db)
 	err = logic.Init(ctx, lg)

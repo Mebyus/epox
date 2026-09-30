@@ -121,3 +121,33 @@ func (c *Client) AddSession(ctx context.Context, lg *zap.Logger, session *base.S
 
 	return nil
 }
+
+func (c *Client) RemoveExpiredSessions(ctx context.Context, lg *zap.Logger) error {
+	lg = lg.Named("db")
+
+	ctx, cancel := c.newQueryContext(ctx)
+	defer cancel()
+
+	result, err := c.db.ExecContext(ctx, `
+	DELETE FROM
+		public.sessions
+	WHERE
+		expire_ts <= $1
+	;
+	`,
+		time.Now().UnixMicro(),
+	)
+	if err != nil {
+		lg.Error("delete", zap.Error(err))
+		return base.ErrDatabaseQuery
+	}
+	
+	// TODO: should we handle this error?
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		lg.Debug("no expired sessions found")
+	} else {
+		lg.Info("removed expired sessions", zap.Int64("count", n))
+	}
+	return nil
+}
