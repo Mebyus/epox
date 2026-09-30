@@ -38,6 +38,10 @@ func New(lg *zap.Logger, logic *logic.Logic) (*hits.Engine, error) {
 
 	ext.Add("POST", "tags", provider.SaveTags)
 
+	ext.Add("QUERY", "notes/messages", provider.GetNotesMessages)
+	ext.Add("POST", "notes/topic", provider.AddNotesTopic)
+	ext.Add("POST", "notes/message", provider.AddNotesMessage)
+
 	router := hits.NewRouter(root)
 	return hits.NewEngine(&hits.EngineConfig{
 		RenderError: RenderError,

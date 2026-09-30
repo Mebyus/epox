@@ -58,4 +58,7 @@ var (
 
 	ErrBadTaskID = NewBadReqError("bad task id")
 	ErrBadTagID  = NewBadReqError("bad tag id")
+
+	ErrEmptyPath        = NewBadReqError("empty path")
+	ErrEmptyPathSegment = NewBadReqError("empty path segment")
 )

@@ -8,6 +8,9 @@ import (
 type TaskID uint64
 
 func (i TaskID) String() string {
+	if i == 0 {
+		return ""
+	}
 	return strconv.FormatUint(uint64(i), 10)
 }
 

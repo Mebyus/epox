@@ -272,9 +272,6 @@ func (c *Client) GetHistoryTasks(ctx context.Context, lg *zap.Logger, userID bas
 func (c *Client) AddTask(ctx context.Context, lg *zap.Logger, task *base.ActiveTask) error {
 	lg = lg.Named("db")
 
-	ctx, cancel := c.newQueryContext(ctx)
-	defer cancel()
-
 	var deadline sql.NullInt64
 	if !task.Deadline.IsZero() {
 		deadline = sql.NullInt64{
@@ -304,8 +301,10 @@ func (c *Client) AddTask(ctx context.Context, lg *zap.Logger, task *base.ActiveT
 		}
 	}
 
+	ctx, cancel := c.newQueryContext(ctx)
+	defer cancel()
 	row := c.db.QueryRowContext(ctx, `
-	INSERT INTO tasks (
+	INSERT INTO public.tasks (
 		  user_id
 		, state
 		, title

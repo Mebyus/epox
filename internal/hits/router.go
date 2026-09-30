@@ -48,6 +48,7 @@ type Simple struct {
 	patch  []route
 	put    []route
 	delete []route
+	query  []route
 
 	IgnoreTrailingSlash bool
 }
@@ -75,6 +76,8 @@ func (s *Simple) Dispatch(c *Context) ([]Handler, error) {
 		r = match(s.put, path)
 	case http.MethodDelete:
 		r = match(s.delete, path)
+	case "QUERY":
+		r = match(s.query, path)
 	}
 	if r == nil {
 		return nil, nil

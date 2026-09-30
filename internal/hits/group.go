@@ -73,6 +73,8 @@ func NewRouter(root *Group) *Simple {
 			s.put = append(s.put, r)
 		case http.MethodDelete:
 			s.delete = append(s.delete, r)
+		case "QUERY":
+			s.query = append(s.query, r)
 		default:
 			panic(fmt.Sprintf("unexpected method %s", r.method))
 		}
@@ -83,6 +85,7 @@ func NewRouter(root *Group) *Simple {
 	sortRoutes(s.patch)
 	sortRoutes(s.put)
 	sortRoutes(s.delete)
+	sortRoutes(s.query)
 
 	return s
 }

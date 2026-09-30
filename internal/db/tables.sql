@@ -93,3 +93,47 @@ CREATE TABLE public.task_tags (
     FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES public.tags(id) ON DELETE CASCADE
 );
+
+CREATE SCHEMA notes;
+
+CREATE SEQUENCE notes.topics_id_seq
+    START WITH 1
+    NO MINVALUE
+    NO MAXVALUE
+;
+
+CREATE TABLE notes.topics (
+    id      int8 PRIMARY KEY DEFAULT nextval('notes.topics_id_seq'),
+    user_id int8 NOT NULL,
+    "path"  text NOT NULL,
+
+    title       text NOT NULL,
+    description text,
+
+    "offset"  int8 NOT NULL, -- offset of next message, starts with 0
+    create_ts int8 NOT NULL, -- unix microseconds timestamp
+    update_ts int8,          -- unix microseconds timestamp
+
+    FOREIGN KEY (user_id) REFERENCES public.users(id),
+
+    UNIQUE (user_id, "path")
+);
+
+CREATE SEQUENCE notes.messages_id_seq
+    START WITH 1
+    NO MINVALUE
+    NO MAXVALUE
+;
+
+CREATE TABLE notes.messages (
+    id       int8 PRIMARY KEY DEFAULT nextval('notes.messages_id_seq'),
+    topic_id int8 NOT NULL,
+
+    "text" text NOT NULL,
+
+    "offset"  int8 NOT NULL, -- starts with 0 for each topic
+    create_ts int8 NOT NULL, -- unix microseconds timestamp
+    update_ts int8,          -- unix microseconds timestamp
+
+    FOREIGN KEY (topic_id) REFERENCES notes.topics(id)
+);

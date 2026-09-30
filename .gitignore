@@ -5,6 +5,7 @@
 
 *.scf
 *.pem
+*.txt
 *.log
 *.json
 *.exe
