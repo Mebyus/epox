@@ -141,7 +141,7 @@ func (c *Client) RemoveExpiredSessions(ctx context.Context, lg *zap.Logger) erro
 		lg.Error("delete", zap.Error(err))
 		return base.ErrDatabaseQuery
 	}
-	
+
 	// TODO: should we handle this error?
 	n, _ := result.RowsAffected()
 	if n == 0 {
