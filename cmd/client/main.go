@@ -92,7 +92,6 @@ func run(config *Config, cname string) error {
 	if err != nil {
 		return fmt.Errorf("do login: %v", err)
 	}
-	fmt.Println(token)
 
 	switch cname {
 	case "tasks/active":
@@ -170,25 +169,32 @@ func doActiveTasks(config *Config, hc *http.Client, token string) error {
 }
 
 func printActiveTasks(tasks []ep.ActiveTask) {
-	printActiveTask(&tasks[0])
-	for _, t := range tasks[1:] {
-		fmt.Printf("\n====================================\n\n")
+	fmt.Println()
+	for _, t := range tasks {
 		printActiveTask(&t)
+		fmt.Println()
 	}
 }
 
 func printActiveTask(task *ep.ActiveTask) {
-	fmt.Printf("(%s) %s\n", task.ID, task.Title)
+	fmt.Printf("[%s] %s\n", task.ID, task.Title)
 
 	if len(task.Tags) != 0 {
 		list := make([]string, 0, len(task.Tags))
 		for _, t := range task.Tags {
-			list = append(list, "#"+t.Name)
+			list = append(list, t.Name)
 		}
-		fmt.Printf("%s\n", strings.Join(list, " "))
+		fmt.Printf("tags: %s\n", strings.Join(list, " "))
 	}
-	
+
 	if task.Deadline != "" {
-		fmt.Printf("\ndeadline: %s\n", task.Deadline)
+		deadline, err := time.Parse(time.RFC3339, task.Deadline)
+		if err != nil {
+			fmt.Printf("deadline: <error> (%s)\n", task.Deadline)
+		} else {
+			// 	RFC3339     = "2006-01-02T15:04:05Z07:00"
+			left := time.Until(deadline)
+			fmt.Printf("deadline: %s (%s)\n", left.Round(time.Hour).String(), deadline.Format("2006-01-02 15:04"))
+		}
 	}
 }
