@@ -94,6 +94,63 @@ func (c *Client) LoadSession(ctx context.Context, lg *zap.Logger, session *base.
 	return nil
 }
 
+// GetActiveSessions load all (up to specified limit) active (not expired) sessions.
+// Returned list is ordered by expiration timestamp in descending order.
+func (c *Client) GetActiveSessions(ctx context.Context, lg *zap.Logger, limit uint32) ([]base.SessionEntry, error) {
+	lg = lg.Named("db")
+
+	ctx, cancel := c.newQueryContext(ctx)
+	defer cancel()
+
+	rows, err := c.db.QueryContext(ctx, `
+	SELECT
+		  user_id
+		, token
+		, expire_ts
+	FROM
+		public.sessions
+	WHERE
+		expire_ts > $1
+	ORDER BY
+		expire_ts DESC
+	LIMIT
+		$2
+	;
+	`,
+		time.Now().UnixMicro(), // $1 expire_ts
+		limit,                  // $2 limit
+	)
+	if err != nil {
+		lg.Error("query db", zap.Error(err))
+		return nil, base.ErrDatabaseQuery
+	}
+	defer rows.Close()
+
+	var sessions []base.SessionEntry
+	for rows.Next() {
+		var session base.SessionEntry
+
+		err := rows.Scan(
+			&session.UserID,
+			&session.Token,
+			&session.Expire,
+		)
+		if err != nil {
+			lg.Error("scan session", zap.Error(err))
+			return nil, base.ErrDatabaseQuery
+		}
+
+		sessions = append(sessions, session)
+	}
+	err = rows.Err()
+	if err != nil {
+		lg.Error("prepare next session", zap.Error(err))
+		return nil, base.ErrDatabaseQuery
+	}
+
+	return sessions, nil
+}
+
 func (c *Client) AddSession(ctx context.Context, lg *zap.Logger, session *base.Session) error {
 	ctx, cancel := c.newQueryContext(ctx)
 	defer cancel()

@@ -36,12 +36,37 @@ func (g *Logic) Login(ctx context.Context, lg *zap.Logger, data *base.LoginData)
 	if err != nil {
 		return nil, err
 	}
+	g.auth.put(s.Token, sent{
+		user:  s.UserID,
+		expts: uint64(s.ExpireTime.UnixMicro()),
+	})
 
 	lg.Info("new session", zap.Uint64("user.id", uint64(s.UserID)))
 	return s, nil
 }
 
 func (g *Logic) LoadSession(ctx context.Context, lg *zap.Logger, session *base.Session) error {
+	ent, code := g.auth.get(session.Token, uint64(time.Now().UnixMicro()))
+	switch code {
+	case sinv:
+		// continue execution, try to load from database
+	case sval:
+		session.UserID = ent.user
+		session.ExpireTime = time.UnixMicro(int64(ent.expts))
+		return nil
+	case sexp:
+		return base.ErrTokenNotFound // TODO: return separate expired token error?
+	}
+
 	lg = lg.Named("auth")
-	return g.db.LoadSession(ctx, lg, session)
+	err := g.db.LoadSession(ctx, lg, session)
+	if err != nil {
+		return err
+	}
+
+	g.auth.put(session.Token, sent{
+		user:  session.UserID,
+		expts: uint64(session.ExpireTime.UnixMicro()),
+	})
+	return nil
 }

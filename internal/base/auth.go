@@ -39,6 +39,14 @@ type Session struct {
 	UserID UserID
 }
 
+type SessionEntry struct {
+	Token  string
+	UserID UserID
+
+	// Unix microseconds timestamp when session expires.
+	Expire uint64
+}
+
 type AuthError struct {
 	msg string
 }
