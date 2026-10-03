@@ -1,19 +1,25 @@
 package logic
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/mebyus/epox/internal/base"
 )
 
-// *
+/*
 // session cache capacity
+const sttl = 7 * 24 * time.Hour
 const scap = 1 << 18
 const debug = false
 
 //*/
 
-/*
+// *
+const sttl = 100 * time.Second
 const scap = 1 << 4
 const debug = true
 
@@ -199,6 +205,15 @@ func (c *scache) init(list []base.SessionEntry) {
 func (c *scache) get(token string, nowts uint64) (sent, ssc) {
 	c.mu.Lock()
 
+	if debug {
+		if c.num != uint32(len(c.m)) {
+			panic(fmt.Sprintf("inconsistent number of entries in cache (n=%d) and (m=%d)", c.num, len(c.m)))
+		}
+		if c.num+c.ready.n != c.top {
+			panic(fmt.Sprintf("broken invariant (n=%d) + (r=%d) != (t=%d)", c.num, c.ready.n, c.top))
+		}
+	}
+
 	var s sent
 	var r ssc
 
@@ -210,11 +225,26 @@ func (c *scache) get(token string, nowts uint64) (sent, ssc) {
 		s = c.remove(i)
 		r = sexp
 	} else {
+		if debug {
+			fmt.Printf("[scache] bump token \"%s\" at %d node\n", token, i)
+		}
 		s = c.bump(i)
 		r = sval
 	}
 
 	c.mu.Unlock()
+
+	if debug {
+		switch r {
+		case sinv:
+			fmt.Printf("[scache] token \"%s\" not found\n", token)
+		case sval:
+			fmt.Printf("[scache] token \"%s\" found\n", token)
+		case sexp:
+			fmt.Printf("[scache] token \"%s\" expired\n", token)
+		}
+	}
+
 	return s, r
 }
 
@@ -267,6 +297,11 @@ func (c *scache) remove(i uint32) sent {
 		}
 	}
 
+	if debug {
+		fmt.Printf("[scache] node %d released\n", i)
+		c.dprintstate()
+	}
+
 	return s
 }
 
@@ -295,6 +330,10 @@ func (c *scache) bump(i uint32) sent {
 	ni, ok := node.next.dec()
 	if !ok {
 		// already at the head and thus no actions needed
+
+		if debug {
+			fmt.Printf("[scache] node %d is already at the head\n", i)
+		}
 		return s
 	}
 
@@ -321,6 +360,11 @@ func (c *scache) bump(i uint32) sent {
 	c.nodes[i].prev = encx(hi)
 	c.nodes[i].next = 0
 
+	if debug {
+		fmt.Printf("[scache] node %d bumped replacing %d as new head\n", i, hi)
+		c.dprintstate()
+	}
+
 	return s
 }
 
@@ -335,6 +379,15 @@ func (c *scache) bump(i uint32) sent {
 // Safe for concurrent usage.
 func (c *scache) put(token string, s sent) {
 	c.mu.Lock()
+
+	if debug {
+		if c.num != uint32(len(c.m)) {
+			panic(fmt.Sprintf("inconsistent number of entries in cache %d and %d", c.num, len(c.m)))
+		}
+		if c.num+c.ready.n != c.top {
+			panic(fmt.Sprintf("broken invariant (n=%d) + (r=%d) != (t=%d)", c.num, c.ready.n, c.top))
+		}
+	}
 
 	_, ok := c.m[token]
 	if ok {
@@ -376,8 +429,19 @@ func (c *scache) put(token string, s sent) {
 		c.head = i
 		c.num += 1
 
+		if debug {
+			fmt.Printf("[scache] token \"%s\" stored at empty node %d\n", token, i)
+			c.dprintstate()
+		}
+
 		c.mu.Unlock()
 		return
+	}
+
+	if debug {
+		if c.num != scap {
+			panic(fmt.Sprintf("unexpected number of stored entries (=%d)", c.num))
+		}
 	}
 
 	// Failed to acquire empty node. That means cache is full
@@ -413,6 +477,11 @@ func (c *scache) put(token string, s sent) {
 
 	// Number of stored entries did not change since
 	// we evicted old entry and replaced it with new one.
+
+	if debug {
+		fmt.Printf("[scache] token \"%s\" stored after evicting \"%s\"\n", token, oldtok)
+		c.dprintstate()
+	}
 
 	c.mu.Unlock()
 }
@@ -488,6 +557,59 @@ func (c *scache) shrink() {
 	}
 }
 
+func (c *scache) dprintstate() {
+	if scap > 32 {
+		fmt.Printf("[scache] too many nodes (stats %d/%d/%d/%d)\n", c.num, c.ready.n, c.top, scap)
+		return
+	}
+
+	nowts := time.Now().UnixMicro()
+
+	fmt.Printf("[scache] ==================================\n")
+	var emptylist []uint32
+	for i := range uint32(scap) {
+		node := c.nodes[i]
+
+		if node.user != 0 {
+			left := strconv.FormatInt((int64(node.expts)-nowts)/1000000, 10)
+			fmt.Printf("[scache] #%02d: %s (%ss)\n", i, node.tok, left)
+		} else {
+			emptylist = append(emptylist, i)
+		}
+	}
+	fmt.Printf("[scache] stats: %d/%d/%d/%d\n", c.num, c.ready.n, c.top, scap)
+	fmt.Printf("[scache] empty: %v\n", emptylist)
+
+	if c.num != 0 {
+		list := make([]string, 0, c.num)
+		i := c.head
+		for {
+			list = append(list, strconv.FormatUint(uint64(i), 10))
+
+			pi, ok := c.nodes[i].prev.dec()
+			if !ok {
+				break
+			}
+			i = pi
+		}
+		fmt.Printf("[scache] ll: %s\n", strings.Join(list, " < "))
+	} else {
+		fmt.Printf("[scache] ll: <nil>\n")
+	}
+
+	if c.ready.n != 0 {
+		list := c.ready.list()
+		slist := make([]string, 0, len(list))
+		for _, p := range list {
+			slist = append(slist, strconv.FormatUint(uint64(p), 10))
+		}
+		fmt.Printf("[scache] rb: %s\n", strings.Join(slist, " > "))
+	} else {
+		fmt.Printf("[scache] rb: <nil>\n")
+	}
+	fmt.Printf("[scache] ==================================\n")
+}
+
 // Circular buffer for unsigned (32-bit) integers.
 // Implements FIFO logic for putting and taking elements.
 //
@@ -505,6 +627,32 @@ type cubuf struct {
 	n uint32
 }
 
+// wrap given integer to fit into slots index.
+func (c *cubuf) wrap(x uint32) uint32 {
+	// assumes that capacity is a power of 2 for wrapping logic
+	const mask = scap - 1
+
+	return x & mask
+}
+
+// Returns list of elements stored in buffer.
+// List is ordered from tail to head (tail at index 0).
+//
+// Returns <nil> if buffer is empty.
+func (c *cubuf) list() []uint32 {
+	if c.n == 0 {
+		return nil
+	}
+
+	list := make([]uint32, 0, c.n)
+	i := c.tail()
+	for range c.n {
+		list = append(list, c.slots[i])
+		i = c.wrap(i + 1)
+	}
+	return list
+}
+
 // Store element into buffer, placing it at the head.
 func (c *cubuf) push(x uint32) {
 	i := c.next()
@@ -515,13 +663,16 @@ func (c *cubuf) push(x uint32) {
 // Handles internal logic for slot index wrapping and
 // stored elements number.
 func (c *cubuf) next() uint32 {
-	// assumes that capacity is a power of 2 for wrapping logic
-	const mask = scap - 1
-
 	p := c.p
-	c.p += (p + 1) & mask
+	c.p = c.wrap(p + 1)
 	c.n += 1
 	return p
+}
+
+// Returns index of buffer tail element.
+// Do not use if buffer is empty.
+func (c *cubuf) tail() uint32 {
+	return c.wrap(c.p - c.n)
 }
 
 // Take element from buffer tail.
@@ -533,10 +684,7 @@ func (c *cubuf) pop() (uint32, bool) {
 		return 0, false
 	}
 
-	// assumes that capacity is a power of 2 for wrapping logic
-	const mask = scap - 1
-
-	i := (c.p - c.n) & mask
+	i := c.tail()
 	c.n -= 1
 	return c.slots[i], true
 }
@@ -549,26 +697,24 @@ func (c *cubuf) cull(x uint32) {
 		return
 	}
 
-	const mask = scap - 1
-
-	s := (c.p - c.n) & mask // starting index
-	i := s                  // insert index
-	j := i                  // scan index
-	var n uint32            // counter of inspected elements
-	var k uint32            // counter of accepted elements
+	s := c.tail() // starting index
+	i := s        // insert index
+	j := i        // scan index
+	var n uint32  // counter of inspected elements
+	var k uint32  // counter of accepted elements
 	for n < c.n {
 		if c.slots[j] < x {
 			c.slots[i] = c.slots[j]
-			i = (i + 1) & mask
+			i = c.wrap(i + 1)
 			k += 1
 		}
 
-		j = (j + 1) & mask
+		j = c.wrap(j + 1)
 		n += 1
 	}
 
 	c.n = k
-	c.p = (s + k) & mask
+	c.p = c.wrap(s + k)
 }
 
 func (c *cubuf) reset() {

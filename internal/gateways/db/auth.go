@@ -179,6 +179,40 @@ func (c *Client) AddSession(ctx context.Context, lg *zap.Logger, session *base.S
 	return nil
 }
 
+// RemoveExpiredSession attempts to remove a session by its token.
+// Does nothing if session is not yet expired.
+func (c *Client) RemoveExpiredSession(ctx context.Context, lg *zap.Logger, token string) error {
+	lg = lg.Named("db")
+
+	ctx, cancel := c.newQueryContext(ctx)
+	defer cancel()
+
+	result, err := c.db.ExecContext(ctx, `
+	DELETE FROM
+		public.sessions
+	WHERE
+		token = $1
+		AND expire_ts <= $2
+	;
+	`,
+		token,
+		time.Now().UnixMicro(),
+	)
+	if err != nil {
+		lg.Error("delete", zap.Error(err))
+		return base.ErrDatabaseQuery
+	}
+
+	// TODO: should we handle this error?
+	n, _ := result.RowsAffected()
+	if n <= 0 {
+		return base.ErrTokenNotFound
+	}
+
+	lg.Debug("removed expired session")
+	return nil
+}
+
 func (c *Client) RemoveExpiredSessions(ctx context.Context, lg *zap.Logger) error {
 	lg = lg.Named("db")
 

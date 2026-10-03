@@ -27,7 +27,7 @@ func (g *Logic) Login(ctx context.Context, lg *zap.Logger, data *base.LoginData)
 	now := time.Now()
 	s := &base.Session{
 		CreateTime: now,
-		ExpireTime: now.Add(24 * time.Hour * 7),
+		ExpireTime: now.Add(sttl),
 		Token:      uuid.NewString(),
 		UserID:     auth.UserID,
 	}
@@ -55,6 +55,7 @@ func (g *Logic) LoadSession(ctx context.Context, lg *zap.Logger, session *base.S
 		session.ExpireTime = time.UnixMicro(int64(ent.expts))
 		return nil
 	case sexp:
+		_ = g.db.RemoveExpiredSession(ctx, lg, session.Token)
 		return base.ErrTokenNotFound // TODO: return separate expired token error?
 	}
 
