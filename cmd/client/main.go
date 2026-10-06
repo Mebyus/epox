@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mebyus/epox/internal/base"
 	ep "github.com/mebyus/epox/internal/endpoints/http"
 )
 
@@ -84,11 +85,13 @@ type Config struct {
 
 	Login    string `json:"login"`
 	Password string `json:"password"`
+
+	TokenFile string `json:"token_file"`
 }
 
 func run(config *Config, cname string) error {
 	hc := http.Client{Timeout: 1 * time.Second}
-	token, err := login(&hc, config)
+	token, err := getAuthToken(&hc, config)
 	if err != nil {
 		return fmt.Errorf("do login: %v", err)
 	}
@@ -101,6 +104,74 @@ func run(config *Config, cname string) error {
 	default:
 		return fmt.Errorf("unknown command \"%s\"", cname)
 	}
+}
+
+func getAuthToken(hc *http.Client, config *Config) (string, error) {
+	tokenFile := strings.TrimSpace(config.TokenFile)
+	if tokenFile == "" {
+		return login(hc, config)
+	}
+
+	token := loadAuthToken(tokenFile)
+	if token != "" {
+		err := check(hc, config, token)
+		if err == nil {
+			// note error condition
+			return token, nil
+		}
+		// TODO: maybe print this error in debug mode?
+	}
+
+	token, err := login(hc, config)
+	if err != nil {
+		return "", err
+	}
+
+	err = saveAuthToken(tokenFile, token)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[warn] save auth token: %v\n", err)
+	}
+
+	return token, nil
+}
+
+func loadAuthToken(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "[warn] load auth token: %v\n", err)
+		}
+		return ""
+	}
+	return string(data)
+}
+
+func saveAuthToken(path string, token string) error {
+	return os.WriteFile(path, []byte(token), 0o644)
+}
+
+// check auth token through server request
+func check(hc *http.Client, config *Config, token string) error {
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", config.API+"/session", nil)
+	if err != nil {
+		return err
+	}
+	req.AddCookie(&http.Cookie{
+		Name:  "auth",
+		Value: token,
+	})
+
+	resp, err := hc.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad response status: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	return nil
 }
 
 // returns auth token
@@ -157,18 +228,24 @@ func doActiveTasks(config *Config, hc *http.Client, token string) error {
 		return fmt.Errorf("bad response status: %d %s", resp.StatusCode, resp.Status)
 	}
 
-	var tasks []ep.ActiveTask
+	var list []ep.ActiveTask
 	dec := json.NewDecoder(resp.Body)
-	err = dec.Decode(&tasks)
+	err = dec.Decode(&list)
 	if err != nil {
 		return err
 	}
 
+	tasks, err := ep.ConvertActiveTasksFromBodyFormat(list)
+	if err != nil {
+		return err
+	}
+
+	base.SortTasksByUrgency(tasks, base.Now())
 	printActiveTasks(tasks)
 	return nil
 }
 
-func printActiveTasks(tasks []ep.ActiveTask) {
+func printActiveTasks(tasks []base.Task) {
 	fmt.Println()
 	for _, t := range tasks {
 		printActiveTask(&t)
@@ -176,7 +253,7 @@ func printActiveTasks(tasks []ep.ActiveTask) {
 	}
 }
 
-func printActiveTask(task *ep.ActiveTask) {
+func printActiveTask(task *base.Task) {
 	fmt.Printf("[%s] %s\n", task.ID, task.Title)
 
 	if len(task.Tags) != 0 {
@@ -187,14 +264,35 @@ func printActiveTask(task *ep.ActiveTask) {
 		fmt.Printf("tags: %s\n", strings.Join(list, " "))
 	}
 
-	if task.Deadline != "" {
-		deadline, err := time.Parse(time.RFC3339, task.Deadline)
-		if err != nil {
-			fmt.Printf("deadline: <error> (%s)\n", task.Deadline)
-		} else {
-			// 	RFC3339     = "2006-01-02T15:04:05Z07:00"
-			left := time.Until(deadline)
-			fmt.Printf("deadline: %s (%s)\n", left.Round(time.Hour).String(), deadline.Format("2006-01-02 15:04"))
-		}
+	const layout = "2006-01-02 15:04"
+
+	if task.Deadline != 0 {
+		left := time.Until(task.Deadline.Time())
+		fmt.Printf("left: %s | %s\n", formatTimeLeft(left), task.Deadline.Time().Format(layout))
 	}
+
+	now := base.Now()
+	if task.StartTime != 0 && now < task.StartTime {
+		left := time.Duration(task.StartTime-now) * time.Microsecond
+		fmt.Printf("start: %s | %s\n", formatTimeLeft(left), task.StartTime.Time().Format(layout))
+	}
+}
+
+func formatTimeLeft(left time.Duration) string {
+	if left <= 0 {
+		return "<expired>"
+	}
+	if left < 4*time.Hour {
+		return left.Round(time.Minute).String()
+	}
+	if left < 24*time.Hour {
+		return left.Round(time.Hour).String()
+	}
+
+	days := left / (24 * time.Hour)
+	hours := left.Truncate(time.Hour) - days*24*time.Hour
+	if days < 3 {
+		return fmt.Sprintf("%dd %s", days, hours.String())
+	}
+	return fmt.Sprintf("%dd", days)
 }

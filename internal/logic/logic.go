@@ -11,6 +11,7 @@ import (
 type Logic struct {
 	auth scache
 	tags TagCache
+	reps tqueue
 
 	db *db.Client
 }
@@ -35,6 +36,8 @@ func (g *Logic) Init(ctx context.Context, lg *zap.Logger) error {
 	if len(sessions) != 0 {
 		lg.Debug("loaded active sessions into cache", zap.Int("count", len(sessions)))
 	}
+
+	g.reps.init()
 
 	return nil
 }

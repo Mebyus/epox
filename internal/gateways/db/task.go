@@ -14,6 +14,7 @@ import (
 
 type taskrow struct {
 	desc       sql.NullString
+	start      sql.NullInt64
 	deadline   sql.NullInt64
 	update     sql.NullInt64
 	title      string
@@ -80,14 +81,19 @@ func (t *taskrow) convert() (base.Task, error) {
 		return base.Task{}, err
 	}
 
-	var deadline time.Time
+	var deadline base.MicroTime
 	if t.deadline.Valid {
-		deadline = time.UnixMicro(t.deadline.Int64)
+		deadline = base.MicroTime(t.deadline.Int64)
 	}
 
 	var updateTime time.Time
 	if t.update.Valid {
 		updateTime = time.UnixMicro(t.update.Int64)
+	}
+
+	var start base.MicroTime
+	if t.start.Valid {
+		start = base.MicroTime(t.start.Int64)
 	}
 
 	return base.Task{
@@ -97,6 +103,7 @@ func (t *taskrow) convert() (base.Task, error) {
 		Description: t.desc.String,
 		CreateTime:  time.UnixMicro(t.create),
 		UpdateTime:  updateTime,
+		StartTime:   start,
 		Deadline:    deadline,
 		Importance:  uint32(t.importance.Int32),
 		Progress:    uint32(t.progress.Int32),
@@ -116,6 +123,7 @@ func (c *Client) GetActiveTasks(ctx context.Context, lg *zap.Logger, userID base
 		, t.title
 		, t.description
 		, t.importance
+		, t.start_ts
 		, t.deadline_ts
 		, t.create_ts
 		, t.progress
@@ -153,6 +161,7 @@ func (c *Client) GetActiveTasks(ctx context.Context, lg *zap.Logger, userID base
 			&t.title,
 			&t.desc,
 			&t.importance,
+			&t.start,
 			&t.deadline,
 			&t.create,
 			&t.progress,
@@ -273,10 +282,10 @@ func (c *Client) AddTask(ctx context.Context, lg *zap.Logger, task *base.ActiveT
 	lg = lg.Named("db")
 
 	var deadline sql.NullInt64
-	if !task.Deadline.IsZero() {
+	if task.Deadline != 0 {
 		deadline = sql.NullInt64{
 			Valid: true,
-			Int64: task.Deadline.UnixMicro(),
+			Int64: int64(task.Deadline.Raw()),
 		}
 	}
 

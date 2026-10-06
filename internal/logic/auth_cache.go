@@ -10,7 +10,7 @@ import (
 	"github.com/mebyus/epox/internal/base"
 )
 
-/*
+// *
 // session cache capacity
 const sttl = 7 * 24 * time.Hour
 const scap = 1 << 18
@@ -18,7 +18,7 @@ const debug = false
 
 //*/
 
-// *
+/*
 const sttl = 100 * time.Second
 const scap = 1 << 4
 const debug = true
@@ -557,7 +557,14 @@ func (c *scache) shrink() {
 	}
 }
 
+// Print cache state.
+//
+// Use for debug purposes.
 func (c *scache) dprintstate() {
+	if !debug {
+		return
+	}
+
 	if scap > 32 {
 		fmt.Printf("[scache] too many nodes (stats %d/%d/%d/%d)\n", c.num, c.ready.n, c.top, scap)
 		return
@@ -572,7 +579,7 @@ func (c *scache) dprintstate() {
 
 		if node.user != 0 {
 			left := strconv.FormatInt((int64(node.expts)-nowts)/1000000, 10)
-			fmt.Printf("[scache] #%02d: %s (%ss)\n", i, node.tok, left)
+			fmt.Printf("[scache] #%02d: %s | %ss\n", i, node.tok, left)
 		} else {
 			emptylist = append(emptylist, i)
 		}

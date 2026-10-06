@@ -26,6 +26,7 @@ func New(lg *zap.Logger, logic *logic.Logic) (*hits.Engine, error) {
 
 	root.Add("GET", "ext", provider.Index)
 	root.Add("GET", "ext/static/**", provider.Static)
+	root.Add("GET", "ext/session", provider.GetSession)
 	root.Add("POST", "ext/login", provider.Login)
 
 	// external endpoints with required authorization
@@ -35,6 +36,8 @@ func New(lg *zap.Logger, logic *logic.Logic) (*hits.Engine, error) {
 	ext.Add("GET", "tasks/history", provider.GetHistoryTasks)
 	ext.Add("POST", "task", provider.AddActiveTask)
 	ext.Add("POST", "task/state", provider.ChangeTaskState)
+
+	ext.Add("POST", "reptask", provider.AddRepTask)
 
 	ext.Add("POST", "tags", provider.SaveTags)
 

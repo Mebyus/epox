@@ -13,3 +13,5 @@
 *.gz
 *.zip
 *.tar
+*.tmp
+*.lock

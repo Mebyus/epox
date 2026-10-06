@@ -48,15 +48,15 @@ func (g *Logic) GetHistoryTasks(ctx context.Context, lg *zap.Logger, userID base
 			continue
 		}
 
-		if t.Deadline.IsZero() {
+		if t.Deadline == 0 {
 			panic(fmt.Sprintf("impossible condition on history task (id=%d)", t.ID))
 		}
 
-		t.UpdateTime = t.Deadline
+		t.UpdateTime = t.Deadline.Time()
 		t.State = base.TaskExpired
 		chores = append(chores, base.ExpiredTaskChore{
 			ID:   t.ID,
-			Time: t.Deadline,
+			Time: t.Deadline.Time(),
 		})
 	}
 
@@ -86,8 +86,11 @@ func (g *Logic) AddTask(ctx context.Context, lg *zap.Logger, task *base.ActiveTa
 	}
 
 	now := time.Now()
-	if !task.Deadline.IsZero() && !task.Deadline.After(now) {
+	if task.Deadline != 0 && task.Deadline > base.MicroTime(now.UnixMicro()) {
 		return errors.New("deadline already passed")
+	}
+	if task.Deadline != 0 && task.StartTime != 0 && task.StartTime >= task.Deadline {
+		return errors.New("deadline before start")
 	}
 
 	err := g.tags.valid(task.Tags)

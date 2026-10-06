@@ -51,7 +51,8 @@ type ActiveTask struct {
 	// datetime + due duration.
 	DueDur string `json:"due_dur,omitempty"`
 
-	Deadline string `json:"deadline,omitempty"`
+	StartTime string `json:"start_time,omitempty"`
+	Deadline  string `json:"deadline,omitempty"`
 
 	Title       string `json:"title"`
 	Description string `json:"description,omitempty"`
@@ -76,7 +77,8 @@ func (p *provider) GetActiveTasks(c *hits.Context) error {
 		response = append(response, ActiveTask{
 			Tags:        convertTags(task.Tags),
 			CreateTime:  task.CreateTime.Format(time.RFC3339),
-			Deadline:    formatOptZeroTime(task.Deadline),
+			StartTime:   task.StartTime.String(),
+			Deadline:    task.Deadline.String(),
 			Title:       task.Title,
 			Description: task.Description,
 			ID:          task.ID.String(),
@@ -135,7 +137,7 @@ func (p *provider) GetHistoryTasks(c *hits.Context) error {
 			Tags:        convertTags(task.Tags),
 			CreateTime:  task.CreateTime.Format(time.RFC3339),
 			UpdateTime:  formatOptZeroTime(task.UpdateTime),
-			Deadline:    formatOptZeroTime(task.Deadline),
+			Deadline:    task.Deadline.String(),
 			Title:       task.Title,
 			Description: task.Description,
 			ID:          task.ID.String(),
@@ -186,11 +188,11 @@ func validateTask(body *ActiveTask, task *base.ActiveTask) error {
 		return ErrEmptyTitle
 	}
 
-	var deadline time.Time
+	var deadline base.MicroTime
 	deadstr := strings.TrimSpace(body.Deadline)
 	duestr := strings.TrimSpace(body.DueDur)
 	if deadstr != "" {
-		deadline, err = parseTime(deadstr)
+		deadline, err = parseMicroTime(deadstr)
 		if err != nil {
 			return err
 		}
@@ -199,7 +201,12 @@ func validateTask(body *ActiveTask, task *base.ActiveTask) error {
 		if err != nil {
 			return err
 		}
-		deadline = time.Now().Add(dur)
+		deadline = base.FromNow(dur)
+	}
+
+	start, err := parseMicroTime(strings.TrimSpace(body.StartTime))
+	if err != nil {
+		return err
 	}
 
 	tags, err := convertTagsFromBody(body.Tags)
@@ -211,10 +218,29 @@ func validateTask(body *ActiveTask, task *base.ActiveTask) error {
 	task.Tags = tags
 	task.Description = strings.TrimSpace(body.Description)
 	task.Deadline = deadline
+	task.StartTime = start
 	task.Importance = body.Importance
 	task.Progress = body.Progress
 	task.MaxProgress = body.MaxProgress
 	return nil
+}
+
+func ConvertActiveTasksFromBodyFormat(list []ActiveTask) ([]base.Task, error) {
+	tasks := make([]base.Task, 0, len(list))
+	for _, t := range list {
+		id, err := strconv.ParseUint(t.ID, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		task := base.ActiveTask{ID: base.TaskID(id)}
+		err = validateTask(&t, &task)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, task.Task)
+	}
+	return tasks, nil
 }
 
 func validateChangeTaskState(body *ChangeTaskStateBody, req *base.RequestChangeTaskState) error {
@@ -270,6 +296,17 @@ func parseTime(s string) (time.Time, error) {
 		return time.Time{}, nil
 	}
 	return time.Parse(time.RFC3339, s)
+}
+
+func parseMicroTime(s string) (base.MicroTime, error) {
+	if s == "" {
+		return 0, nil
+	}
+	t, err := parseTime(s)
+	if err != nil {
+		return 0, err
+	}
+	return base.MicroTime(t.UnixMicro()), nil
 }
 
 const fullDay = 24 * time.Hour

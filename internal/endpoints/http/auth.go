@@ -56,6 +56,32 @@ func (p *provider) Auth(c *hits.Context) error {
 	return nil
 }
 
+// SessionBody object for marshalling response body
+// with session properties.
+type SessionBody struct {
+	Token      string `json:"token"`
+	UserID     string `json:"user_id"`
+	ExpireTime string `json:"expire_time"`
+}
+
+func (p *provider) GetSession(c *hits.Context) error {
+	s, err := p.tryLoadSession(c)
+	if err != nil {
+		return err
+	}
+	if s == nil {
+		return base.ErrTokenNotFound
+	}
+
+	body := SessionBody{
+		Token:      s.Token,
+		UserID:     s.UserID.String(),
+		ExpireTime: formatOptZeroTime(s.ExpireTime),
+	}
+	c.RenderJSON(http.StatusOK, &body)
+	return nil
+}
+
 // try to load session possibly stored (via token) in request context.
 //
 // Returns error only when its server error, not logic error.

@@ -1,8 +1,18 @@
 package base
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 type UserID uint64
+
+func (i UserID) String() string {
+	if i == 0 {
+		return ""
+	}
+	return strconv.FormatUint(uint64(i), 10)
+}
 
 // LoginData contains data from login request.
 type LoginData struct {
