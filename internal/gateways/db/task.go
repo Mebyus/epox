@@ -289,6 +289,14 @@ func (c *Client) AddTask(ctx context.Context, lg *zap.Logger, task *base.ActiveT
 		}
 	}
 
+	var start sql.NullInt64
+	if task.StartTime != 0 {
+		start = sql.NullInt64{
+			Valid: true,
+			Int64: int64(task.StartTime.Raw()),
+		}
+	}
+
 	var desc sql.NullString
 	if task.Description != "" {
 		desc = sql.NullString{
@@ -319,13 +327,14 @@ func (c *Client) AddTask(ctx context.Context, lg *zap.Logger, task *base.ActiveT
 		, title
 		, description
 		, importance
+		, start_ts
 		, deadline_ts
 		, create_ts
 		, progress
 		, max_progress
 	)
 	VALUES
-		($1, 0, $2, $3, $4, $5, $6, $7, $8)
+		($1, 0, $2, $3, $4, $5, $6, $7, $8, $9)
 	RETURNING
 		id
 	;
@@ -334,10 +343,11 @@ func (c *Client) AddTask(ctx context.Context, lg *zap.Logger, task *base.ActiveT
 		task.Title,                  // $2 title
 		desc,                        // $3 description
 		task.Importance,             // $4 importance
-		deadline,                    // $5 deadline_ts
-		task.CreateTime.UnixMicro(), // $6 create_ts
-		progress,                    // $7 progress
-		maxProgress,                 // $8 max_progress
+		start,                       // $5 start_ts
+		deadline,                    // $6 deadline_ts
+		task.CreateTime.UnixMicro(), // $7 create_ts
+		progress,                    // $8 progress
+		maxProgress,                 // $9 max_progress
 	)
 
 	var id int64

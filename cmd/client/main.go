@@ -41,7 +41,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = run(&config, cname)
+	err = run(&config, cname, args[1:])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -89,7 +89,7 @@ type Config struct {
 	TokenFile string `json:"token_file"`
 }
 
-func run(config *Config, cname string) error {
+func run(config *Config, cname string, args []string) error {
 	hc := http.Client{Timeout: 1 * time.Second}
 	token, err := getAuthToken(&hc, config)
 	if err != nil {
@@ -99,6 +99,11 @@ func run(config *Config, cname string) error {
 	switch cname {
 	case "tasks/active":
 		return doActiveTasks(config, &hc, token)
+	case "task/done":
+		if len(args) == 0 {
+			return errors.New("task id not specified")
+		}
+		return doTaskDone(config, &hc, token, args[0])
 	case "tasks/history":
 		return nil
 	default:
@@ -208,6 +213,38 @@ func login(hc *http.Client, config *Config) (string, error) {
 	return "", errors.New("auth cookie not found")
 }
 
+func doTaskDone(config *Config, hc *http.Client, token string, id string) error {
+	body := ep.ChangeTaskStateBody{
+		ID:    id,
+		State: "done",
+	}
+	data, err := json.Marshal(&body)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", config.API+"/task/state", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.AddCookie(&http.Cookie{
+		Name:  "auth",
+		Value: token,
+	})
+
+	resp, err := hc.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad response status: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	return nil
+}
+
 func doActiveTasks(config *Config, hc *http.Client, token string) error {
 	req, err := http.NewRequestWithContext(context.TODO(), "GET", config.API+"/tasks/active", nil)
 	if err != nil {
@@ -283,16 +320,19 @@ func formatTimeLeft(left time.Duration) string {
 		return "<expired>"
 	}
 	if left < 4*time.Hour {
-		return left.Round(time.Minute).String()
+		hours := left.Truncate(time.Hour)
+		minutes := left.Round(time.Minute) - 60*hours
+		return fmt.Sprintf("%dh %dm", hours/time.Hour, minutes/time.Minute)
 	}
 	if left < 24*time.Hour {
-		return left.Round(time.Hour).String()
+		hours := left.Round(time.Hour)
+		return fmt.Sprintf("%dh", hours/time.Hour)
 	}
 
 	days := left / (24 * time.Hour)
 	hours := left.Truncate(time.Hour) - days*24*time.Hour
 	if days < 3 {
-		return fmt.Sprintf("%dd %s", days, hours.String())
+		return fmt.Sprintf("%dd %dh", days, hours/time.Hour)
 	}
 	return fmt.Sprintf("%dd", days)
 }

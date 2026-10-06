@@ -86,7 +86,7 @@ func (g *Logic) AddTask(ctx context.Context, lg *zap.Logger, task *base.ActiveTa
 	}
 
 	now := time.Now()
-	if task.Deadline != 0 && task.Deadline > base.MicroTime(now.UnixMicro()) {
+	if task.Deadline != 0 && task.Deadline <= base.MicroTime(now.UnixMicro()) {
 		return errors.New("deadline already passed")
 	}
 	if task.Deadline != 0 && task.StartTime != 0 && task.StartTime >= task.Deadline {
