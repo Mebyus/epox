@@ -34,3 +34,7 @@ func Now() MicroTime {
 func FromNow(d time.Duration) MicroTime {
 	return MicroTime(time.Now().Add(d).UnixMicro())
 }
+
+func FromTime(t time.Time) MicroTime {
+	return MicroTime(t.UnixMicro())
+}

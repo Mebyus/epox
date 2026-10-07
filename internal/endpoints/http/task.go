@@ -59,6 +59,8 @@ type ActiveTask struct {
 
 	ID string `json:"id"`
 
+	RepTaskID string `json:"rep_task_id,omitempty"`
+
 	Importance  uint32 `json:"importance,omitempty"`
 	Progress    uint32 `json:"progress,omitempty"`
 	MaxProgress uint32 `json:"max_progress,omitempty"`
@@ -82,6 +84,7 @@ func (p *provider) GetActiveTasks(c *hits.Context) error {
 			Title:       task.Title,
 			Description: task.Description,
 			ID:          task.ID.String(),
+			RepTaskID:   task.RepTaskID.String(),
 			Importance:  task.Importance,
 			Progress:    task.Progress,
 			MaxProgress: task.MaxProgress,
@@ -232,8 +235,18 @@ func ConvertActiveTasksFromBodyFormat(list []ActiveTask) ([]base.Task, error) {
 		if err != nil {
 			return nil, err
 		}
+		var rid uint64
+		if t.RepTaskID != "" {
+			rid, err = strconv.ParseUint(t.RepTaskID, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+		}
 
-		task := base.ActiveTask{ID: base.TaskID(id)}
+		task := base.ActiveTask{
+			ID:        base.TaskID(id),
+			RepTaskID: base.RepTaskID(rid),
+		}
 		err = validateTask(&t, &task)
 		if err != nil {
 			return nil, err

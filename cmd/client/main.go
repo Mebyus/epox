@@ -291,27 +291,39 @@ func printActiveTasks(tasks []base.Task) {
 }
 
 func printActiveTask(task *base.Task) {
-	fmt.Printf("[%s] %s\n", task.ID, task.Title)
+	if task.RepTaskID != 0 {
+		fmt.Printf("[%s.%s] %s\n", task.ID, task.RepTaskID, task.Title)
+	} else {
+		fmt.Printf("[%s] %s\n", task.ID, task.Title)
+	}
 
 	if len(task.Tags) != 0 {
 		list := make([]string, 0, len(task.Tags))
 		for _, t := range task.Tags {
 			list = append(list, t.Name)
 		}
-		fmt.Printf("tags: %s\n", strings.Join(list, " "))
+		fmt.Printf("tags:  %s\n", strings.Join(list, " "))
 	}
 
 	const layout = "2006-01-02 15:04"
 
-	if task.Deadline != 0 {
-		left := time.Until(task.Deadline.Time())
-		fmt.Printf("left: %s | %s\n", formatTimeLeft(left), task.Deadline.Time().Format(layout))
-	}
-
 	now := base.Now()
 	if task.StartTime != 0 && now < task.StartTime {
+		// task not started yet
 		left := time.Duration(task.StartTime-now) * time.Microsecond
 		fmt.Printf("start: %s | %s\n", formatTimeLeft(left), task.StartTime.Time().Format(layout))
+
+		if task.Deadline != 0 && task.Deadline > task.StartTime {
+			leftts := task.Deadline - task.StartTime
+			left := time.Duration(leftts) * time.Microsecond
+			fmt.Printf("left:  %s | %s\n", formatTimeLeft(left), task.Deadline.Time().Format(layout))
+		}
+	} else {
+		// task already started
+		if task.Deadline != 0 {
+			left := time.Until(task.Deadline.Time())
+			fmt.Printf("left:  %s | %s\n", formatTimeLeft(left), task.Deadline.Time().Format(layout))
+		}
 	}
 }
 

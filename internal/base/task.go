@@ -39,8 +39,9 @@ type Task struct {
 	Title       string
 	Description string
 
-	ID     TaskID
-	UserID UserID
+	ID        TaskID
+	RepTaskID RepTaskID
+	UserID    UserID
 
 	// Can be zero if task has no deadline.
 	Deadline MicroTime
