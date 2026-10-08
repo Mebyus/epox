@@ -45,6 +45,14 @@ type RepTask struct {
 	MaxProgress uint32
 }
 
+// RepTaskQueueEntry small structure used for initial loading of
+// all repeatable tasks when server starts.
+type RepTaskQueueEntry struct {
+	ID RepTaskID
+
+	NextTrigger MicroTime
+}
+
 // RepSchedule determines a schedule for triggering
 // repeatable tasks.
 type RepSchedule interface {

@@ -10,8 +10,9 @@ import (
 	"github.com/mebyus/epox/internal/base"
 )
 
-// GetActiveRepTasks loads active repeatable tasks for all users.
-func (c *Client) GetActiveRepTasks(ctx context.Context, lg *zap.Logger) ([]base.RepTask, error) {
+// GetRepTasksQueueEntries loads active repeatable tasks for all users.
+// Used for initializing repeatable tasks queue on server start.
+func (c *Client) GetRepTasksQueueEntries(ctx context.Context, lg *zap.Logger) ([]base.RepTaskQueueEntry, error) {
 	lg = lg.Named("db")
 
 	ctx, cancel := c.newQueryContext(ctx)
@@ -19,65 +20,41 @@ func (c *Client) GetActiveRepTasks(ctx context.Context, lg *zap.Logger) ([]base.
 
 	rows, err := c.db.QueryContext(ctx, `
 	SELECT
-		  t.id
-		, t.user_id
-		, t."type"
-		, t.time_limit
-		, t.timezone
-		, t.schedule
-		, t.title
-		, t.description
-		, t.importance
-		, t.max_progress
-		, t.create_ts
+		  id
+		, next_trigger_ts
 	FROM
-		public.tasks AS t
+		public.rep_tasks AS t
 	WHERE
-		AND t.state = 0
-	GROUP BY
-		t.id
+		state = 0
+		AND next_trigger_ts IS NOT NULL
 	ORDER BY
-		t.next_trigger_ts ASC
+		next_trigger_ts ASC
 	;
-	`,
-	)
+	`)
 	if err != nil {
 		lg.Error("query db", zap.Error(err))
 		return nil, base.ErrDatabaseQuery
 	}
 	defer rows.Close()
 
-	var tasks []base.RepTask
+	var tasks []base.RepTaskQueueEntry
 	for rows.Next() {
-		var t taskrow
+		var ent base.RepTaskQueueEntry
 
 		err := rows.Scan(
-			&t.id,
-			&t.title,
-			&t.desc,
-			&t.importance,
-			&t.deadline,
-			&t.create,
-			&t.progress,
-			&t.maxprog,
-			&t.tagslist,
+			&ent.ID,
+			&ent.NextTrigger,
 		)
 		if err != nil {
-			lg.Error("scan task", zap.Error(err))
-			return nil, base.ErrDatabaseQuery
-		}
-		task, err := t.convert()
-		if err != nil {
-			lg.Error("convert task row", zap.Error(err))
+			lg.Error("scan reptask", zap.Error(err))
 			return nil, base.ErrDatabaseQuery
 		}
 
-		_ = task
-		tasks = append(tasks, base.RepTask{})
+		tasks = append(tasks, ent)
 	}
 	err = rows.Err()
 	if err != nil {
-		lg.Error("prepare next task", zap.Error(err))
+		lg.Error("prepare next reptask", zap.Error(err))
 		return nil, base.ErrDatabaseQuery
 	}
 

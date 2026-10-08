@@ -1,10 +1,14 @@
 package logic
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/mebyus/epox/internal/base"
 )
+
+// debug repeatable tasks queue
+const tdebug = false
 
 // Time queue for repeatable task triggers.
 //
@@ -30,12 +34,52 @@ type tent struct {
 	next base.MicroTime
 }
 
+func newTimer() *time.Timer {
+	timer := time.NewTimer(0)
+
+	// drain timer since zero or negative
+	// initial duration will cause it to fire almost
+	// immediately
+	//
+	// we want "empty" (which waits for reset to fire)
+	// timer for our queue, since initial queue state
+	// is empty queue
+	<-timer.C
+
+	return timer
+}
+
 func (q *tqueue) init() {
 	q.entries.init(64)
-	q.timer = time.NewTimer(0)
+	q.timer = newTimer()
 	q.enq = make(chan tent, 16)
 	q.deq = make(chan tent, 1)
 	go q.watch()
+
+	if tdebug {
+		start := time.Now()
+		fmt.Printf("[tqueue] start: %v\n", start)
+
+		q.put(tent{id: 1, next: base.FromNow(3 * time.Second)})
+		q.put(tent{id: 2, next: base.FromNow(8 * time.Second)})
+		q.put(tent{id: 3, next: base.FromNow(5 * time.Second)})
+		q.put(tent{id: 4, next: base.FromNow(2 * time.Second)})
+		q.put(tent{id: 5, next: base.FromNow(0 * time.Second)})
+
+		// test when trigger instants are equal
+		// for multiple entries
+		ts := base.FromNow(5 * time.Second)
+		q.put(tent{id: 6, next: ts})
+		q.put(tent{id: 7, next: ts})
+		q.put(tent{id: 8, next: ts})
+
+		go func() {
+			for {
+				ent := q.next()
+				fmt.Printf("[tqueue] %d: %v\n", ent.id, time.Since(start))
+			}
+		}()
+	}
 }
 
 func (q *tqueue) put(ent tent) {
@@ -51,32 +95,102 @@ func (q *tqueue) watch() {
 	for {
 		select {
 		case <-q.timer.C:
-			ent, ok1 := q.entries.pop()
-			top, ok2 := q.entries.peek()
-			if ok2 {
-				q.reset(top)
-			}
-			if ok1 {
-				q.deq <- ent
-			}
-			// TODO: do something if heap was empty on pop, situation is abnormal
+			q.tick()
 		case ent := <-q.enq:
-			// TODO: check that new entry is not expired
-			q.entries.push(ent)
-			top, _ := q.entries.peek()
-			if top == ent {
-				q.reset(top)
-			}
+			q.handle(ent)
 		}
 	}
 }
 
-func (q *tqueue) reset(ent tent) {
-	nowts := time.Now().UnixMicro()
-	if ent.next > base.MicroTime(nowts) {
-		delay := ent.next - base.MicroTime(nowts)
-		d := time.Microsecond * time.Duration(delay)
+// handles new entries in watch loop
+func (q *tqueue) handle(ent tent) {
+	nowts := base.Now()
+	if ent.next <= nowts {
+		// trigger instantly if its target instant already passed
+		q.deq <- ent
+		return
+	}
+
+	q.entries.push(ent)
+	top, _ := q.entries.peek() // no need for flag since at least one entry is already stored
+
+	// here we check if top entry has changed to the new entry
+	if top != ent {
+		// if no change in top entry occured then
+		// no need to reschedule timer
+		return
+	}
+
+	// check delay again since heap push is potentially
+	// a slow operation
+	const margin = 2 // in microseconds
+	nowts = base.Now()
+	if ent.next > nowts+margin {
+		delay := ent.next - nowts
+		d := time.Duration(delay) * time.Microsecond
 		q.timer.Reset(d)
+		return
+	}
+
+	// trigger instant already passed while we were dealing
+	// with heap operations, send entry now and remove it from
+	// heap
+	q.deq <- ent
+	q.entries.pop()
+}
+
+// handles timer tick in watch loop
+func (q *tqueue) tick() {
+	ent, ok := q.entries.pop()
+	if !ok {
+		// internal queue is empty on tick
+		//
+		// situation is abnormal if it happens on initial
+		// loop iteration because ticks must be scheduled
+		// only if entries are still present in internal queue
+		//
+		// nothing left to do here
+		//
+		// TODO: should we report this or just panic?
+		return
+	}
+
+	// drain internal queue until we find top element
+	// that should trigger strictly after now instant
+	for {
+		top, ok := q.entries.peek()
+		if !ok {
+			// internal queue is empty after pop on a tick
+			//
+			// skip timer scheduling to render it inactive
+			// until new entry comes from queue client
+			//
+			// thus we only need to send poped entry
+			q.deq <- ent
+			return
+		}
+
+		// algrorithm in this function may look a bit weird
+		// in its logic
+		//
+		// it is written this way to enshure minimal time
+		// between checking scheduling delay and actually
+		// resetting the timer
+		//
+		// note that we send last popped entry only after
+		// resetting the timer
+		const margin = 10 // in microseconds
+		nowts := base.Now()
+		if top.next > nowts+margin {
+			delay := top.next - nowts
+			dur := time.Duration(delay) * time.Microsecond
+			q.timer.Reset(dur)
+			q.deq <- ent
+			return
+		}
+
+		q.deq <- ent
+		ent, _ = q.entries.pop() // ignore flag due to previous peek() check
 	}
 }
 
